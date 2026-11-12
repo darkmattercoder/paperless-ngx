@@ -185,6 +185,45 @@ class TestGetPageCount:
             == 6
         )
 
+    @pytest.mark.parametrize(
+        ("mime_type", "multi_page", "expected"),
+        [
+            ("image/tiff", False, 1),
+            ("image/tiff", True, 6),
+            ("image/png", False, 1),
+        ],
+    )
+    def test_image_page_count_from_archive(
+        self,
+        mime_type: str,
+        multi_page: bool,
+        expected: int,
+        tesseract_parser: RasterisedDocumentParser,
+        simple_digital_pdf_file: Path,
+        tesseract_samples_dir: Path,
+    ) -> None:
+        tesseract_parser.archive_path = (
+            tesseract_samples_dir / "multi-page-mixed.pdf"
+            if multi_page
+            else simple_digital_pdf_file
+        )
+        assert (
+            tesseract_parser.get_page_count(tesseract_samples_dir / "image", mime_type)
+            == expected
+        )
+
+    def test_pdf_page_count_uses_original(
+        self,
+        tesseract_parser: RasterisedDocumentParser,
+        simple_digital_pdf_file: Path,
+        tesseract_samples_dir: Path,
+    ) -> None:
+        tesseract_parser.archive_path = tesseract_samples_dir / "multi-page-mixed.pdf"
+        assert (
+            tesseract_parser.get_page_count(simple_digital_pdf_file, "application/pdf")
+            == 1
+        )
+
     def test_password_protected_returns_none(
         self,
         mocker: MockerFixture,
@@ -213,15 +252,17 @@ class TestGetPageCount:
             "Unable to determine PDF page count" in r.message for r in caplog.records
         )
 
-    def test_non_pdf_returns_none(
+    @pytest.mark.parametrize("mime_type", ["image/png", "image/tiff"])
+    def test_image_without_archive_returns_none(
         self,
+        mime_type: str,
         tesseract_parser: RasterisedDocumentParser,
         tesseract_samples_dir: Path,
     ) -> None:
         assert (
             tesseract_parser.get_page_count(
                 tesseract_samples_dir / "simple.png",
-                "image/png",
+                mime_type,
             )
             is None
         )
@@ -766,6 +807,13 @@ class TestParseMultiPage:
             "image/tiff",
         )
         assert tesseract_parser.archive_path is not None
+        assert (
+            tesseract_parser.get_page_count(
+                tesseract_samples_dir / "multi-page-images.tiff",
+                "image/tiff",
+            )
+            == 3
+        )
         _text = tesseract_parser.get_text()
         assert _text is not None
         assert_ordered_substrings(

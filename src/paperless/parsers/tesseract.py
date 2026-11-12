@@ -174,10 +174,15 @@ class RasterisedDocumentParser:
 
     def get_page_count(self, document_path: Path, mime_type: str) -> int | None:
         if mime_type == "application/pdf":
-            from paperless.parsers.utils import get_page_count_for_pdf
+            pdf_path = Path(document_path)
+        elif self.is_image(mime_type) and self.archive_path is not None:
+            pdf_path = self.archive_path
+        else:
+            return None
 
-            return get_page_count_for_pdf(Path(document_path), log=self.log)
-        return None
+        from paperless.parsers.utils import get_page_count_for_pdf
+
+        return get_page_count_for_pdf(pdf_path, log=self.log)
 
     def extract_metadata(
         self,
